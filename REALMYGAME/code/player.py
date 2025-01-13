@@ -9,9 +9,9 @@ class Player(pygame.sprite.Sprite):
         self.load_images()
         self.state, self.frame_index, self.status = 'down', 0, 'idle'
         self.original_image = pygame.image.load(join(current_dir, '..', 'assets','player','down','idle','idle.png')).convert_alpha()
-        self.image = get_image(self.original_image, 3, 32, 32, 1, BLACK)
+        self.image = get_image(self.original_image, 3, 32, 32, 1.25, BLACK)
         self.rect = self.image.get_rect(center = pos)
-        self.hitbox_rect = self.rect.inflate(-15, -30)
+        self.hitbox_rect = self.rect.inflate(-18.75, -37.75)
 
         #movement
         self.direction = pygame.Vector2()
@@ -29,10 +29,13 @@ class Player(pygame.sprite.Sprite):
                         for file_name in file_names:
                             if file_name.endswith(('.png', '.jpg')): # Đảm bảo chỉ load file ảnh
                                 original_image = pygame.image.load(join(folder_path, file_name)).convert_alpha()
-                                while frame <= 4:
-                                    surf = get_image(original_image, frame, 32, 32, 1, BLACK)
+                                while frame < 5:
+                                    surf = get_image(original_image, frame, 32, 32, 1.25, BLACK)
                                     self.frames[state][anim_type].append(surf)
                                     frame += 1
+
+        self.full_heart_surf = pygame.image.load(join(current_dir, '..', 'assets', 'heart', 'full_heart.png')).convert_alpha()
+        self.death_heart_surf = pygame.image.load(join(current_dir, '..', 'assets', 'heart', 'death_heart.png')).convert_alpha()
 
     def input(self, dt):
         keys = pygame.key.get_pressed()
