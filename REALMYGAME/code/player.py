@@ -34,8 +34,6 @@ class Player(pygame.sprite.Sprite):
                                     self.frames[state][anim_type].append(surf)
                                     frame += 1
 
-        self.full_heart_surf = pygame.image.load(join(current_dir, '..', 'assets', 'heart', 'full_heart.png')).convert_alpha()
-        self.death_heart_surf = pygame.image.load(join(current_dir, '..', 'assets', 'heart', 'death_heart.png')).convert_alpha()
 
     def input(self, dt):
         keys = pygame.key.get_pressed()

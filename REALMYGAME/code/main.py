@@ -55,18 +55,21 @@ class Game:
         self.death_heart_surf = get_image(pygame.image.load(join(current_dir, '..', 'assets', 'heart', 'death_heart.png')).convert_alpha(), 0, 16, 16, 3, BLACK)
 
         folders = list(walk(join(current_dir, '..', 'assets', 'enemies')))[0][1]
-        self.enemy_frames = {}
-        for folder in folders:
-            for folder_path, _, file_names in walk(join(current_dir, '..', 'assets', 'enemies', folder, 'down')):
-                frame = 0
-                self.enemy_frames[folder] = []
-                for file_name in file_names: 
-                    full_path = join(folder_path, file_name)
-                    original_image = pygame.image.load(full_path).convert_alpha()
-                    while frame < 6:
-                        surf = get_image(original_image, frame, 64, 64, 1, BLACK)
-                        self.enemy_frames[folder].append(surf)
-                        frame += 1    
+        self.enemy_frames = {'Slime1': {'down':{'run':[], 'idle':[], 'death':[]}},
+                             'Slime2': {'down':{'run':[], 'idle':[], 'death':[]}},
+                             'Slime3': {'down':{'run':[], 'idle':[], 'death':[]}}}
+        for folder in folders: # folder ở đây là tên enemy (ví dụ: 'Slime1')
+            for anim_type in self.enemy_frames[folder]['down']:
+                for folder_path, sub_folders, file_names in walk(join(current_dir, '..', 'assets', 'enemies', folder, 'down', anim_type)):
+                    for file_name in file_names:
+                        original_image = pygame.image.load(join(folder_path, file_name)).convert_alpha()
+                        if anim_type == 'idle': max_frame = 6
+                        elif anim_type == 'run': max_frame = 8
+                        else: max_frame = 10
+        
+                        for frame in range(max_frame):
+                            surf = get_image(original_image, frame, 64, 64, 1, BLACK)
+                            self.enemy_frames[folder]['down'][anim_type].append(surf)
 
 
     def input(self):
@@ -107,15 +110,17 @@ class Game:
             else:
                 self.spawn_positions.append((obj.x, obj.y))
 
-    def bullet_collision(self):
+    def bullet_collision(self, dt):
         if self.bullet_sprites:
             for bullet in self.bullet_sprites:
                 collision_sprites = pygame.sprite.spritecollide(bullet, self.enemy_sprites, False, pygame.sprite.collide_mask)
                 if collision_sprites:
                     #self.impact_sound.play()
                     for sprite in collision_sprites:
-                        sprite.destroy()
-                    bullet.kill()
+                        if sprite.alive:
+                            sprite.destroy(dt)
+                            bullet.kill()
+                            break
 
     def player_collision(self):
         if pygame.sprite.spritecollide(self.player, self.enemy_sprites, False) and pygame.time.get_ticks() - self.hit_time >= self.delay_hit:
@@ -146,7 +151,7 @@ class Game:
             self.gun_timer()
             self.input()
             self.all_sprites.update(dt)
-            self.bullet_collision()
+            self.bullet_collision(dt)
             self.player_collision()
 
             #draw

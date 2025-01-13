@@ -71,11 +71,13 @@ class Enemy(pygame.sprite.Sprite):
     def __init__(self, pos, frames, groups, player, collision_sprites):
         super().__init__(groups)
         self.player = player 
+        self.alive = True
 
         #image
-        self.frames, self.frame_index = frames, 0
-        self.image = self.frames[self.frame_index]
+        self.frames, self.frame_index, self.frame_death_index = frames, 0, 0
+        self.image = self.frames['down']['idle'][self.frame_index]
         self.animation_speed = 6
+        self.animation_death_speed = 10
 
         #rect
         self.rect = self.image.get_rect(center = pos)
@@ -87,11 +89,18 @@ class Enemy(pygame.sprite.Sprite):
 
         # timer
         self.death_time = 0
-        self.death_duration = 400
+        self.death_duration = 1000
 
-    def animate(self, dt):
-        self.frame_index += self.animation_speed * dt
-        self.image = self.frames[int(self.frame_index) % len(self.frames)]
+    def animate(self, dt, alive):
+        if alive: 
+            self.frame_index += self.animation_speed * dt
+            self.image = self.frames['down']['idle'][int(self.frame_index) % len(self.frames['down']['idle'])]
+        else:
+            # animation death
+            self.frame_death_index += self.animation_death_speed * dt
+            #print(int(self.frame_death_index))
+            self.image = self.frames['down']['death'][int(self.frame_death_index) if int(self.frame_death_index) < 10 else 9]
+
     def move(self, dt):
         # get direction
         player_pos = pygame.Vector2(self.player.rect.center)
@@ -115,13 +124,10 @@ class Enemy(pygame.sprite.Sprite):
                     if self.direction.y > 0: self.hitbox_rect.bottom = sprite.rect.top
                     elif self.direction.y < 0: self.hitbox_rect.top = sprite.rect.bottom
 
-    def destroy(self):
+    def destroy(self, dt):
         # timer
+        self.alive = False
         self.death_time = pygame.time.get_ticks()
-        # change the image when be hurted
-        surf = pygame.mask.from_surface(self.frames[0]).to_surface()
-        surf.set_colorkey(BLACK)
-        self.image = surf
 
     def death_timer(self):
         if pygame.time.get_ticks() - self.death_time >= self.death_duration:
@@ -130,5 +136,7 @@ class Enemy(pygame.sprite.Sprite):
     def update(self, dt):
         if self.death_time == 0:
             self.move(dt)
-            self.animate(dt)
-        else: self.death_timer()
+            self.animate(dt, self.alive)
+        else: 
+            self.animate(dt, self.alive)
+            self.death_timer()
