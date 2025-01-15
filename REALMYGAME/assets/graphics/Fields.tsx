@@ -5,8 +5,6 @@
   <wangset name="Ground" type="corner" tile="-1">
    <wangcolor name="Dirt" color="#ff0000" tile="-1" probability="1"/>
    <wangcolor name="Grass" color="#00ff00" tile="-1" probability="1"/>
-   <wangcolor name="Rock" color="#0000ff" tile="-1" probability="1"/>
-   <wangcolor name="Grass on Rock" color="#ff7700" tile="-1" probability="1"/>
    <wangtile tileid="18" wangid="0,1,0,2,0,1,0,1"/>
    <wangtile tileid="19" wangid="0,1,0,2,0,2,0,1"/>
    <wangtile tileid="20" wangid="0,1,0,1,0,2,0,1"/>

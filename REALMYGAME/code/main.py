@@ -14,6 +14,10 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
 
+        # text font
+        self.font_size = 30
+        self.font = pygame.font.Font(join(current_dir, '..', 'assets', 'fonts', 'Pixel.ttf'), self.font_size)
+
         #groups
         self.all_sprites = AllSprites()
         self.collision_sprites = pygame.sprite.Group()
@@ -37,16 +41,33 @@ class Game:
         self.hit_time = pygame.time.get_ticks()
 
         # audio
-        """
-        self.shoot_sound = pygame.mixer.Sound(join(''))
-        self.shoot_sound.set_volume(0.4)
-        self.impact_sound = pygame.mixer.Sound(join(''))
-        self.music = pygame.mixer.Sound(join(''))
+        
+        self.shoot_sound = pygame.mixer.Sound(join(current_dir, '..', 'assets', 'sounds', 'shoot.wav'))
+        self.shoot_sound.set_volume(0.1)
+        self.impact_sound = pygame.mixer.Sound(join(current_dir, '..', 'assets', 'sounds', 'impact.wav'))
+        self.impact_sound.set_volume(0.2)
+        self.music = pygame.mixer.Sound(join(current_dir, '..', 'assets', 'sounds', 'beautiful_dream.wav'))
         self.music.set_volume(0.4)
         self.music.play(loops = -1)
-        """
         self.load_images()
         self.setup()
+
+        # highscore
+        self.score = 0
+        self.highscore = 0  # Initialize highscore
+        self.load_highscore()  # Load highscore from file
+
+
+    def load_highscore(self):
+        try:
+            with open(join(current_dir, '..', 'highscore', 'highscore.txt'), 'r') as file:
+                self.highscore = int(file.read())
+        except FileNotFoundError:
+            self.highscore = 0
+
+    def save_highscore(self):
+        with open(join(current_dir, '..', 'highscore', 'highscore.txt'), 'w') as file:
+            file.write(str(self.highscore))
     
     def load_images(self):
         self.bullet_surf = get_image(pygame.image.load(join(current_dir, '..', 'assets', 'gun', 'bullet.png')), 0, 32, 32, 0.2, BLACK)
@@ -74,7 +95,7 @@ class Game:
 
     def input(self):
         if pygame.mouse.get_pressed()[0] and self.can_shoot:
-            #self.shoot_sound.play()
+            self.shoot_sound.play()
             pos = self.gun.rect.center + self.gun.player_direction * 10
             Bullet(self.bullet_surf, pos, self.gun.player_direction, (self.all_sprites, self.bullet_sprites))
             self.can_shoot = False
@@ -115,25 +136,39 @@ class Game:
             for bullet in self.bullet_sprites:
                 collision_sprites = pygame.sprite.spritecollide(bullet, self.enemy_sprites, False, pygame.sprite.collide_mask)
                 if collision_sprites:
-                    #self.impact_sound.play()
                     for sprite in collision_sprites:
                         if sprite.alive:
+                            self.impact_sound.play()
+                            self.score += 1
                             sprite.destroy(dt)
                             bullet.kill()
                             break
 
     def player_collision(self):
-        if pygame.sprite.spritecollide(self.player, self.enemy_sprites, False) and pygame.time.get_ticks() - self.hit_time >= self.delay_hit:
-            self.hit_time = pygame.time.get_ticks()
-            self.player_health -= 1
-            if self.player_health <= 0:
-                self.running = False
+        for sprite in pygame.sprite.spritecollide(self.player, self.enemy_sprites, False):
+            if sprite.alive and pygame.time.get_ticks() - self.hit_time >= self.delay_hit:
+                self.hit_time = pygame.time.get_ticks()
+                self.player_health -= 1
+                if self.player_health <= 0:
+                    self.running = False
 
     def draw_hearts(self):
         for heart in range(self.player_health):
             self.display_surface.blit(self.full_heart_surf, (heart * 50, 0))
         for heart in range(self.max_health - self.player_health):
             self.display_surface.blit(self.death_heart_surf, ((self.player_health + heart) * 50, 0))
+
+    def draw_score(self):
+        score_surf = self.font.render('Score: ' + str(self.score), True, BLACK) # True for anti-aliasing
+        score_rect = score_surf.get_rect()  # Get the rectangle for positioning
+        score_rect.topright = (WINDOW_WIDTH - 20, 20)  
+        self.display_surface.blit(score_surf, score_rect)
+
+
+        highscore_surf = self.font.render('Highscore: ' + str(self.highscore), True, BLACK) 
+        highscore_rect = highscore_surf.get_rect()  
+        highscore_rect.topright = (WINDOW_WIDTH - 20, 60)  
+        self.display_surface.blit(highscore_surf, highscore_rect)
 
     def run(self):
         while self.running:
@@ -154,10 +189,15 @@ class Game:
             self.bullet_collision(dt)
             self.player_collision()
 
+            if self.score > self.highscore:
+                self.highscore = self.score
+                self.save_highscore()
+
             #draw
             self.display_surface.fill(BLACK)
             self.all_sprites.draw(self.player.rect.center)
             self.draw_hearts()
+            self.draw_score()
             pygame.display.update()
 
         pygame.quit()   
