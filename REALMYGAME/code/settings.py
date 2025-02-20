@@ -27,6 +27,8 @@ OLIVE = (128, 128, 0)
 MAROON = (128, 0, 0)
 TEAL = (0, 128, 128)
 NAVY = (0, 0, 128)
+LIGHT_GREEN = (0, 255, 0)
+LIGHT_BLUE = (0, 0, 255)
 
 def get_image(sheet, frame, width, height, scale, colour):
     image = pygame.Surface((width, height)).convert_alpha()

@@ -1,18 +1,56 @@
 from settings import *
 from player import Player
 from sprites import *
+import sys
 from pytmx.util_pygame import load_pygame
 from groups import AllSprites
-
 from random import randint, choice
+import pygame
+from os.path import join, dirname, abspath
+
+current_dir = dirname(abspath(__file__))
+
+class Button:
+    def __init__(self, text, x, y, width, height, color, hover_color, font, action=None):
+        self.text = text
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.color = color
+        self.hover_color = hover_color
+        self.font = font
+        self.action = action
+        self.rect = pygame.Rect(x, y, width, height)
+
+        self.text_surface = font.render(text, True, WHITE)  # Render text only once
+        self.text_rect = self.text_surface.get_rect(center=self.rect.center)
+
+    def draw(self, surface):
+        mouse_pos = pygame.mouse.get_pos()
+        if self.rect.collidepoint(mouse_pos):
+            pygame.draw.rect(surface, self.hover_color, self.rect)
+        else:
+            pygame.draw.rect(surface, self.color, self.rect)
+
+        surface.blit(self.text_surface, self.text_rect)  # Use pre-rendered surface
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and self.rect.collidepoint(event.pos):  # Left click
+                if self.action:
+                    self.action()
+
 
 class Game:
     def __init__(self):
         pygame.init()
         self.display_surface = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-        pygame.display.set_caption('Nick Chicken')
+        pygame.display.set_caption('Knee Grow')
         self.clock = pygame.time.Clock()
         self.running = True
+        self.game_active = False  # Thêm biến trạng thái trò chơi
+        self.game_over = False
 
         # text font
         self.font_size = 30
@@ -41,14 +79,14 @@ class Game:
         self.hit_time = pygame.time.get_ticks()
 
         # audio
-        
+
         self.shoot_sound = pygame.mixer.Sound(join(current_dir, '..', 'assets', 'sounds', 'shoot.wav'))
         self.shoot_sound.set_volume(0.1)
         self.impact_sound = pygame.mixer.Sound(join(current_dir, '..', 'assets', 'sounds', 'impact.wav'))
         self.impact_sound.set_volume(0.2)
         self.music = pygame.mixer.Sound(join(current_dir, '..', 'assets', 'sounds', 'beautiful_dream.wav'))
         self.music.set_volume(0.4)
-        self.music.play(loops = -1)
+        #self.music.play(loops = -1) # move to game_loop
         self.load_images()
         self.setup()
 
@@ -56,6 +94,25 @@ class Game:
         self.score = 0
         self.highscore = 0  # Initialize highscore
         self.load_highscore()  # Load highscore from file
+
+        # Buttons
+        button_width = 200
+        button_height = 50
+        button_x = (WINDOW_WIDTH - button_width) // 2
+        play_button_y = WINDOW_HEIGHT // 2 - button_height
+        tutorial_button_y = WINDOW_HEIGHT // 1.8 + button_height // 2
+
+        self.play_button = Button("Play", button_x, play_button_y, button_width, button_height,
+                                   GREEN, LIGHT_GREEN, self.font, self.start_game)
+        self.tutorial_button = Button("Tutorial", button_x, tutorial_button_y, button_width, button_height,
+                                       BLUE, LIGHT_BLUE, self.font, self.show_tutorial)
+        self.showing_tutorial = False  # Flag to indicate if tutorial screen is being shown
+
+        # Game Over Buttons
+        self.restart_button = Button("Restart", button_x, WINDOW_HEIGHT // 2 - button_height, button_width, button_height,
+                                      GREEN, LIGHT_GREEN, self.font, self.start_game)
+        self.menu_button = Button("Menu", button_x, WINDOW_HEIGHT // 1.8 + button_height // 2, button_width, button_height,
+                                     BLUE, LIGHT_BLUE, self.font, self.go_to_menu)
 
 
     def load_highscore(self):
@@ -68,7 +125,7 @@ class Game:
     def save_highscore(self):
         with open(join(current_dir, '..', 'highscore', 'highscore.txt'), 'w') as file:
             file.write(str(self.highscore))
-    
+
     def load_images(self):
         self.bullet_surf = get_image(pygame.image.load(join(current_dir, '..', 'assets', 'gun', 'bullet.png')), 0, 32, 32, 0.2, BLACK)
 
@@ -87,7 +144,7 @@ class Game:
                         if anim_type == 'idle': max_frame = 6
                         elif anim_type == 'run': max_frame = 8
                         else: max_frame = 10
-        
+
                         for frame in range(max_frame):
                             surf = get_image(original_image, frame, 64, 64, 1, BLACK)
                             self.enemy_frames[folder]['down'][anim_type].append(surf)
@@ -112,7 +169,7 @@ class Game:
 
         for x, y, image in  map.get_layer_by_name('Ground').tiles():
             Sprite((x * TILE_SIZE,y * TILE_SIZE), image, self.all_sprites)
-        
+
         for x, y, image in  map.get_layer_by_name('Collisions').tiles():
             Sprite((x * TILE_SIZE,y * TILE_SIZE), image, self.all_sprites)
 
@@ -150,7 +207,8 @@ class Game:
                 self.hit_time = pygame.time.get_ticks()
                 self.player_health -= 1
                 if self.player_health <= 0:
-                    self.running = False
+                    self.game_over = True
+                    self.game_active = False
 
     def draw_hearts(self):
         for heart in range(self.player_health):
@@ -161,46 +219,159 @@ class Game:
     def draw_score(self):
         score_surf = self.font.render('Score: ' + str(self.score), True, BLACK) # True for anti-aliasing
         score_rect = score_surf.get_rect()  # Get the rectangle for positioning
-        score_rect.topright = (WINDOW_WIDTH - 20, 20)  
+        score_rect.topright = (WINDOW_WIDTH - 20, 20)
         self.display_surface.blit(score_surf, score_rect)
 
 
-        highscore_surf = self.font.render('Highscore: ' + str(self.highscore), True, BLACK) 
-        highscore_rect = highscore_surf.get_rect()  
-        highscore_rect.topright = (WINDOW_WIDTH - 20, 60)  
+        highscore_surf = self.font.render('Highscore: ' + str(self.highscore), True, BLACK)
+        highscore_rect = highscore_surf.get_rect()
+        highscore_rect.topright = (WINDOW_WIDTH - 20, 60)
         self.display_surface.blit(highscore_surf, highscore_rect)
 
-    def run(self):
+    def display_start_screen(self):
+        self.display_surface.fill(BLACK)  # Fill the screen with black
+
+        title_text = self.font.render("Knee Grow", True, WHITE)
+        title_rect = title_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 3))
+
+        highscore_text = self.font.render(f"Highscore: {self.highscore}", True, WHITE)
+        highscore_rect = highscore_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT * 2 // 3 - 90))
+
+        self.play_button.draw(self.display_surface)
+        self.tutorial_button.draw(self.display_surface)
+
+        self.display_surface.blit(title_text, title_rect)
+        self.display_surface.blit(highscore_text, highscore_rect)
+        pygame.display.update()
+
+    def display_tutorial_screen(self):
+        self.display_surface.fill(BLACK)
+        tutorial_text = "Go around and kill monsters,\navoid hitting from them, try to\nlive as long as you can."
+        lines = tutorial_text.split('\n') # Split into lines
+
+        y_offset = WINDOW_HEIGHT // 3
+        for line in lines:
+            text_surface = self.font.render(line, True, WHITE)
+            text_rect = text_surface.get_rect(center=(WINDOW_WIDTH // 2, y_offset))
+            self.display_surface.blit(text_surface, text_rect)
+            y_offset += 40  # Adjust spacing between lines
+
+        back_text = self.font.render("Press ESC to return", True, WHITE)
+        back_rect = back_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT * 2 // 3))
+        self.display_surface.blit(back_text, back_rect)
+
+        pygame.display.update()
+
+    def display_game_over_screen(self):
+        self.display_surface.fill(BLACK)
+
+        game_over_text = self.font.render("Game Over", True, WHITE)
+        game_over_rect = game_over_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 3))
+
+        score_text = self.font.render(f"Your Score: {self.score}", True, WHITE)
+        score_rect = score_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + 30))
+
+        self.restart_button.draw(self.display_surface)
+        self.menu_button.draw(self.display_surface)
+
+        self.display_surface.blit(game_over_text, game_over_rect)
+        self.display_surface.blit(score_text, score_rect)
+        pygame.display.update()
+
+
+    def start_game(self):
+        self.reset_game()
+        self.game_active = True
+        self.game_over = False
+
+    def show_tutorial(self):
+        self.showing_tutorial = True
+
+    def go_to_menu(self):
+        self.game_over = False
+        self.game_active = False
+        self.showing_tutorial = False
+
+    def reset_game(self):
+        # Reset player
+        self.player.kill()
+        self.gun.kill()
+
+        # Reset groups
+        self.all_sprites = AllSprites()
+        self.collision_sprites = pygame.sprite.Group()
+        self.bullet_sprites = pygame.sprite.Group()
+        self.enemy_sprites = pygame.sprite.Group()
+
+        # Reset timers
+        self.can_shoot = True
+        self.shoot_time = 0
+        self.player_health = self.max_health
+        self.score = 0
+
+        # Set up the map again
+        self.setup()
+
+    def game_loop(self):
+        self.music.play(loops = -1)
         while self.running:
-            #dt
-            dt = self.clock.tick(60) / 1000 # 60 FPS
+            # Check if the game is active or on the start screen
+            if self.game_over:
+                self.display_game_over_screen()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self.running = False
+                    self.restart_button.handle_event(event)
+                    self.menu_button.handle_event(event)
+            elif not self.game_active and not self.showing_tutorial:
+                self.display_start_screen()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self.running = False
+                    self.play_button.handle_event(event)
+                    self.tutorial_button.handle_event(event)
 
-            #event loop
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                if event.type == self.enemy_event: #pass
-                    Enemy(choice(self.spawn_positions), choice(list(self.enemy_frames.values())), (self.all_sprites, self.enemy_sprites), self.player, self.collision_sprites)
+            elif self.showing_tutorial:
+                self.display_tutorial_screen()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self.running = False
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            self.showing_tutorial = False  # Return to start screen
+            else:
+                #dt
+                dt = self.clock.tick(60) / 1000 # 60 FPS
 
-            #update
-            self.gun_timer()
-            self.input()
-            self.all_sprites.update(dt)
-            self.bullet_collision(dt)
-            self.player_collision()
+                #event loop
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self.running = False
+                    if event.type == self.enemy_event: #pass
+                        Enemy(choice(self.spawn_positions), choice(list(self.enemy_frames.values())), (self.all_sprites, self.enemy_sprites), self.player, self.collision_sprites)
 
-            if self.score > self.highscore:
-                self.highscore = self.score
-                self.save_highscore()
+                #update
+                self.gun_timer()
+                self.input()
+                self.all_sprites.update(dt)
+                self.bullet_collision(dt)
+                self.player_collision()
 
-            #draw
-            self.display_surface.fill(BLACK)
-            self.all_sprites.draw(self.player.rect.center)
-            self.draw_hearts()
-            self.draw_score()
-            pygame.display.update()
+                if self.score > self.highscore:
+                    self.highscore = self.score
+                    self.save_highscore()
 
-        pygame.quit()   
+                #draw
+                self.display_surface.fill(BLACK)
+                self.all_sprites.draw(self.player.rect.center)
+                self.draw_hearts()
+                self.draw_score()
+                pygame.display.update()
+
+        pygame.quit()
+
+    def run(self):
+        self.game_loop()
 
 if __name__ == '__main__':
     game = Game()

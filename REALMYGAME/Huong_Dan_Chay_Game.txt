@@ -1,0 +1,3 @@
+Bước 1: Mở file main.py trong folder code
+Bước 2: Nhấp chuột phải chọn "Run in Interactive Windows"
+Bước 3: Chọn "Run Current File in Interactive Windows"
